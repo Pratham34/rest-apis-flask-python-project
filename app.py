@@ -1,4 +1,5 @@
 import os
+import redis
 import secrets
 from flask import Flask,jsonify
 from flask_smorest import Api
@@ -7,7 +8,7 @@ from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 from db import db
 import models
-
+from rq import Queue
 from dotenv import load_dotenv
 
 from resources.item import blp as ItemBlueprint
@@ -19,6 +20,11 @@ def create_app(db_url=None):
     app = Flask(__name__)
     
     load_dotenv()
+
+    connection = redis.from_url(
+        os.getenv("REDIS_URL")
+    )  # Get this from Render.com or run in Docker
+    queue1 = Queue("emails", connection=connection)
     app.config["PROPAGATE_EXCEPTIONS"] = True
     app.config["API_TITLE"] = "Stores REST API"
     app.config["API_VERSION"] = "v1"
@@ -29,7 +35,7 @@ def create_app(db_url=None):
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url or os.getenv("DATABASE_URL","sqlite:///data.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.init_app(app)
-    migrate = Migrate(app,db)
+    migrate = Migrate(app,db,compare_type=True)
     api = Api(app)
     
     # secrets.SystemRandom().getrandbits(128)
